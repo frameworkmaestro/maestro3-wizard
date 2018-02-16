@@ -8,7 +8,7 @@ return array(
     ),
     'options' => array(
         //'basePath' => Manager::getHome() . '/apps/wizard/public/files',
-        'basePath' => '/home/ematos/public_html/maestro/apps/wizard/public/files',
+        'basePath' => dirname(__FILE__) . DIRECTORY_SEPARATOR . '../public/files',
         'templateEngine' => 'latte'
     ),
     'theme' => array(
