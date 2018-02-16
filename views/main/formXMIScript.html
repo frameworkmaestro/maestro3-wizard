@@ -1,0 +1,28 @@
+{{layout $manager->getThemePath('templates/dialog.latte.html')}}
+
+{{var $idForm = 'formXMIScript' }}
+{{var $title = 'XMI > Script' }}
+{{var $modal = 'false' }}
+
+{{block container}}
+{{include row, control=>"textfield", id=>"xmi", label=>"XMIFile", hint=>"inside files/xmi"}}
+{{include row, control=>"textfield", id=>"app", label=>"App", hint=>"A app definida no script (pasta abaixo do maestro/apps)"}}
+{{include row, control=>"textfield", id=>"module", label=>"Module", hint=>"O módulo da app (abaixo de maestro/apps/<app>/modules)"}}
+{{include row, control=>"textfield", id=>"database", label=>"Database", hint=>"O banco de dados definido no conf.php"}}
+{{include row, control=>"textfield", id=>"schema", label=>"Schema", hint=>"O schema do banco de dados (prefixo das tabelas). Deixe em branco caso use sinônimos e o schema UFJF"}}
+{{include row, control=>"textfield", id=>"package", label=>"Package", hint=>"O Package das classes do Script. Algo como 'Bolsa_Classes', 'Adm_Classes', etc "}}
+{{include row, control=>"checkbox", id=>"keepModelNames", label=>"Manter os Nomes do XMI", hint=>"Mantém os nomes usados no XMI como base para a criação dos arquivos"}}
+{{/block}}
+
+{{block buttons}}
+{{include button, id=>"btnPost", label=>"Enviar", action=>"@wizard/main/createXMIScript|formXMIScript"}}
+{{/block}}
+
+{{block onLoad}}
+    $('#xmi').textbox({width: '150px'});
+    $('#app').textbox({width: '150px'});
+    $('#module').textbox({width: '150px'});
+    $('#database').textbox({width: '150px'});
+    $('#package').textbox({width: '150px'});
+    $('#btnPost').linkbutton({});
+{{/block}}

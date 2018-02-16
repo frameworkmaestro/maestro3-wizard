@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<view>
+    <mactionpanel id="mainPanel" title="$_moduleC" close=">$_module/main" actions="$_module" />
+</view>

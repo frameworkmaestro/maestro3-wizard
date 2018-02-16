@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<view>
+    <tool title="Ajuda" action="help:nomeHelp" icon="help"/>
+    <fields>
+        $_fields
+    </fields>
+    <buttons>
+        <mbutton id="btnPost" text="Enviar" action="$this->data->action"/>
+    </buttons>
+    <validators>
+    </validators>
+    <help>
+        <mhelp id="nomeHelp" caption="Tipo de Eventos">
+            <![CDATA[
+        Texto do help
+        ]]>
+        </mhelp>
+    </help>
+
+</view>

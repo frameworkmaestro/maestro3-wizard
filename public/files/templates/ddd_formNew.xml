@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<view>
+    <mform id="formNew" title="Novo" close=">$_module/$_controllerL/formFind">
+        <include file="fields.xml" />
+    </mform>
+</view>

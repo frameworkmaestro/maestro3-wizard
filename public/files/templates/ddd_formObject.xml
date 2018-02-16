@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<view>
+    <mform id="formObject" close=">$_module/$_controllerL/formFind|formChild">
+        <property title="$this->data->$_model->description" />
+        <action action="{{ 'formUpdate/' . $this->data->id . '|formObjectChild' }}" label="Editar" />
+        <action action="{{ 'formDelete/' . $this->data->id . '|formObjectChild' }}" label="Excluir" />
+        <mcontentpane id="formObjectChild"></mcontentpane>
+    </mform>
+</view>

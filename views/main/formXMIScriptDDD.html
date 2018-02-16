@@ -1,0 +1,26 @@
+{{layout $manager->getThemePath('templates/dialog.latte.html')}}
+
+{{var $idForm = 'formXMIScriptDDD' }}
+{{var $title = 'XMI > Script DDD' }}
+{{var $modal = 'false' }}
+
+{{block container}}
+{{include row, control=>"textfield", id=>"xmi", label=>"XMIFile", hint=>"inside files/xmi"}}
+{{include row, control=>"textfield", id=>"app", label=>"App", hint=>"A app definida no script (pasta abaixo do maestro/apps)"}}
+{{include row, control=>"textfield", id=>"module", label=>"Module", hint=>"O módulo da app (abaixo de maestro/apps/<app>/modules)"}}
+{{include row, control=>"textfield", id=>"database", label=>"Database", hint=>"O banco de dados definido no conf.php"}}
+{{include row, control=>"textfield", id=>"prefix", label=>"Prefix", hint=>"O prefixo dos Packages do VP"}}
+{{/block}}
+
+{{block buttons}}
+{{include button, id=>"btnPost", label=>"Enviar", action=>"@wizard/main/createXMIScriptDDD|formXMIScriptDDD"}}
+{{/block}}
+
+{{block onLoad}}
+    $('#xmi').textbox({width: '150px'});
+    $('#app').textbox({width: '150px'});
+    $('#module').textbox({width: '150px'});
+    $('#database').textbox({width: '150px'});
+    $('#prefix').textbox({width: '150px'});
+    $('#btnPost').linkbutton({});
+{{/block}}

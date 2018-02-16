@@ -1,0 +1,20 @@
+{{layout $manager->getThemePath('templates/dialog.latte.html')}}
+
+{{var $idForm = 'formScript' }}
+{{var $title = 'Script > Structure' }}
+{{var $modal = 'false' }}
+
+{{block container}}
+{{include row, control=>"textfield", id=>"script", label=>"Script", hint=>"inside files/scripts"}}
+{{include row, control=>"checkbox", id=>"keepModelNames", label=>"Manter os Nomes do XMI", hint=>"Mantém os nomes usados no XMI como base para a criação dos arquivos"}}
+{{/block}}
+
+{{block buttons}}
+{{include button, id=>"btnPost", label=>"Enviar", action=>"@wizard/main/createScriptStructure|formScript"}}
+{{/block}}
+
+{{block onLoad}}
+    $('#script').textbox({width: '100px'});
+    $('#source').textbox({width: '350px'});
+    $('#btnPost').linkbutton({});
+{{/block}}

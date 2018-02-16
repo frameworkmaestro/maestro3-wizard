@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<view>
+    <mform id="formGeneric" title="Generic" close=">$_module/$_controllerL/main">
+    </mform>
+</view>

@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<view>
+    <mform id="formBase" title="$_modelC" close=">$_modulemain">
+        <action action="formFind|formChild" label="Pesquisar" />
+        <action action="formNew|formChild" label="Inserir Novo" />
+        <mcontentpane id="formChild"></mcontentpane>
+    </mform>
+</view>

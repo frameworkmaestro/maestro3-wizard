@@ -1,0 +1,20 @@
+{{layout $manager->getThemePath('templates/dialog.latte.html')}}
+
+{{var $idForm = 'formScriptDDDUpdate' }}
+{{var $title = 'Script > Structure DDD' }}
+{{var $modal = 'false' }}
+
+{{block container}}
+{{include row, control=>"textfield", id=>"script", label=>"Script", hint=>"inside files/scripts"}}
+{{include row, control=>"textfield", id=>"source", label=>"Source Path", hint=>"Full path for source files"}}
+{{/block}}
+
+{{block buttons}}
+{{include button, id=>"btnPost", label=>"Enviar", action=>"@wizard/main/updateScriptStructureDDD|formScriptDDDUpdate"}}
+{{/block}}
+
+{{block onLoad}}
+    $('#script').textbox({width: '100px'});
+    $('#source').textbox({width: '350px'});
+    $('#btnPost').linkbutton({});
+{{/block}}

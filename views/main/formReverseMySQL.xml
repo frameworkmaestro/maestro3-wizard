@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE view SYSTEM "../../public/layouts/view.dtd">
+<view>
+    <mform id="formRserverMySQL" title="ReverseMySQL" close=">wizard/main">
+        <fields>
+            <mvcontainer>
+                <mtextfield id="script" label="Script" value="" width="15em" />
+                <mtextfield id="database" label="Database" value="" width="15em" />
+                <mtextfield id="app" label="App" width="15em" value="" />
+                <mtextfield id="module" label="Module" value="" />
+            </mvcontainer>
+        </fields>
+        <buttons>
+            <mbutton id="btnSubmit" text="Submit" action="@wizard/main/reverseMySQL" />
+        </buttons>
+    </mform>
+</view>

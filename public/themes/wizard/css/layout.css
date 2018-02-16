@@ -1,0 +1,74 @@
+/*
+Arquivo: layout.css
+Autor: Ely Matos
+Descrição: 
+    Define os estilos para a estrutura da página.
+Version: 2.0
+Licença: GNU General Public License
+Licença URI: license.txt
+*/
+
+
+#appContainer {
+    height: 100%;
+    width: 100%;
+}
+
+#mainPane {
+    height: 100%;
+}
+
+#centerPane {
+    padding:  10px;
+}
+
+#topPane {
+    
+}
+
+#menuPane {
+    width: 75%;
+    float:left;
+}
+
+#userPane {
+    width: 25%;
+    text-align:right;
+    padding-right: 5px;
+    float:right;
+    vertical-align: center;
+}
+
+#loader
+{
+  padding:0;
+  margin:0;
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:#FFF;
+  z-index:999;
+  vertical-align:middle;
+}
+
+#loaderInner
+{
+  padding:5px;
+  position:relative;
+  left:0;
+  top:0;
+  width:175px;
+  background:#3c3;
+  color:#fff;
+}
+
+.absoluteCenter {
+  width: 50%;
+  height: 50%;
+  overflow: auto;
+  margin: auto;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+}

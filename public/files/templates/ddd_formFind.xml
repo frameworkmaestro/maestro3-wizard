@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<view>
+    <mform id="formFind" title="Pesquisar" close=">$_modulemain">
+        <fields>
+            <mhcontainer>
+                <mtextfield id="$_lookup" label="$_lookupC" value="$this->data->$_lookup" size="15" />
+                <mbuttonfind/>
+            </mhcontainer>
+            <mdatagrid id="gridFind" query="$this->data->query" pageLength="15" actionUpdate="@$_module/$_controllerL/formUpdate/#0#"
+                       actionDelete="@$_module/$_controllerL/formDelete/#0#">
+                <mdatagridcolumn field="$_pkName" visible="false"/>
+                <mdatagridcolumn field="$_lookup" title="$_lookupC" width="100%"/>
+            </mdatagrid>
+        </fields>
+    </mform>
+</view>

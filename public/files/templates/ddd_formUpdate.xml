@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<view>
+    <mform id="formUpdate" title="Editar" close="{{'$_module/$_controllerL/formObject/'.$this->data->id}}">
+        <include file="fields.xml" />
+        <data load="$this->data" />
+    </mform>
+</view>
