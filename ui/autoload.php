@@ -22,13 +22,11 @@ return array(
 /* . */ 
     'mui' => $baseDir . '/mui.php',
     'mxmlcontrols' => $baseDir . '/mxmlcontrols.php',
-    /* teste com o Maestro3 
     'mcomponent' => $baseDir . '/mcomponent.php',
     'mpage' => $baseDir . '/mpage.php',
     'mpagecontent' => $baseDir . '/mpagecontent.php',
     'mscripts' => $baseDir . '/mscripts.php',
     'mview' => $baseDir . '/mview.php',
-    */
 
 /* controls/action/button */ 
     'mbutton' => $baseDir . '/controls/action/button/mbutton.php',

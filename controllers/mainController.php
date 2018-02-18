@@ -197,6 +197,37 @@ class MainController extends MController {
         }
     }
 
+    public function formYAMLDDDUpdate() {
+        $this->render();
+    }
+
+    public function updateYAMLStructureDDD() {
+        $fileScript = Manager::getAppPath('public/files/scripts/') . $this->data->yaml;
+        if (!file_exists($fileScript)) {
+            $fileScript.=".yml";
+            if (!file_exists($fileScript)) {
+                throw new Exception("Arquivo YAML inexistente");
+            }
+        }
+
+        $pathSource = $this->data->source;
+        if (!file_exists($pathSource)) {
+            throw new Exception("Path Source inexistente");
+        }
+
+        $script = new MWizardYAMLDDDUpdate();
+        $baseDir = Manager::getOptions('basePath') . '/structure';
+        $script->setPathTarget($baseDir);
+        $script->setPathSource($pathSource);
+        $script->setFileScript($fileScript);
+        $script->generate();
+        if (count($script->errors)) {
+            $this->renderPrompt('error', $script->errors);
+        } else {
+            $this->renderPrompt('information', 'Arquivos gerados com sucesso em ' . $baseDir);
+        }
+    }
+
     public function formCSS() {
         $this->render();
     }

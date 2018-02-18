@@ -1,0 +1,20 @@
+{{layout $manager->getThemePath('templates/dialog.latte.html')}}
+
+{{var $idForm = 'formYAMLDDDUpdate' }}
+{{var $title = 'YAML > Structure DDD' }}
+{{var $modal = 'false' }}
+
+{{block container}}
+{{include row, control=>"textfield", id=>"yaml", label=>"YAML File", hint=>"inside files/scripts"}}
+{{include row, control=>"textfield", id=>"source", label=>"Source Path", hint=>"Full path for source files"}}
+{{/block}}
+
+{{block buttons}}
+{{include button, id=>"btnPost", label=>"Enviar", action=>"@wizard/main/updateYAMLStructureDDD|formYAMLDDDUpdate"}}
+{{/block}}
+
+{{block onLoad}}
+    $('#yaml').textbox({width: '100px'});
+    $('#source').textbox({width: '350px'});
+    $('#btnPost').linkbutton({});
+{{/block}}

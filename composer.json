@@ -1,0 +1,28 @@
+{
+  "name": "Maestro3 Wizard",
+  "description": "Maestro3 App Structure Wizard",
+  "require": {
+    "easyrdf/easyrdf": "*",
+    "ml/json-ld" : "~1.0",
+    "auth0/auth0-php": "~5.0",
+    "beberlei/assert": "2.*",
+    "phake/phake": "^2.3",
+    "slim/slim": "^3.0",
+    "symfony/yaml": "*",
+    "symfony/console": "*",
+    "latte/latte": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "utils\\": "../../../../core/classes/utils/"
+    },
+    "classmap": [
+      "../../core/classes/manager.php"
+    ]
+  },
+  "scripts": {
+    "post-autoload-dump": [
+      "Manager::createFileMap"
+    ]
+  }
+}

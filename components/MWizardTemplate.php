@@ -68,6 +68,7 @@ class MWizardTemplate {
         $result = str_replace('$_controllerL', strtolower($this->var['originalClass']), $result);
         $result = str_replace('$_lookupForeginInstance', $this->var['lookupForeginInstance'], $result);
         $result = str_replace('$_class', $this->var['class'], $result);
+        $result = str_replace('$_db', $this->var['db'], $result);
         $result = str_replace('$_modulemain', $this->var['module'] .'/main', $result);
         $result = str_replace('$_moduleC', ucfirst($this->var['module']), $result);
         $result = str_replace('$_module', $this->var['module'], $result);
@@ -197,6 +198,23 @@ class MWizardTemplate {
             }
         }
         copy($fileSource, $fileDest);
+    }
+
+    public function copydir($src,$dst) {
+        if (file_exists($src)) {
+            $dir = opendir($src);
+            @mkdir($dst);
+            while (false !== ($file = readdir($dir))) {
+                if (($file != '.') && ($file != '..')) {
+                    if (is_dir($src . '/' . $file)) {
+                        $this->copydir($src . '/' . $file, $dst . '/' . $file);
+                    } else {
+                        copy($src . '/' . $file, $dst . '/' . $file);
+                    }
+                }
+            }
+            closedir($dir);
+        }
     }
 
     public function rrmdir($dir) {

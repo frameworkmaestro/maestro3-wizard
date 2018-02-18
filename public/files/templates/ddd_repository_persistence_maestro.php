@@ -17,7 +17,8 @@ class $_classO extends \MBaseRepository implements RepositoryInterface
 {
     public function __construct()
     {
-        parent::__construct('maestro');
+        $persistence = \Manager::getOptions('persistence');
+        parent::__construct($persistence);
     }
 
 $_services

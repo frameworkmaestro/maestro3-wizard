@@ -1,9 +1,11 @@
 <?php
+require_once __DIR__ . "/../utils/bigbang.php";
+
 use TokenFun\TokenFinder\Tool\TokenFinderTool;
+use Symfony\Component\Yaml\Yaml;
 
-require_once  __DIR__ . "/../utils/bigbang.php";
 
-class MWizardScriptDDDUpdate
+class MWizardYAMLDDDUpdate
 {
     public $files;
     public $pathSource;
@@ -15,6 +17,7 @@ class MWizardScriptDDDUpdate
     public $generatedMaps;
     private $baseService;
     private $data;
+    private $meta;
 
     public function __construct()
     {
@@ -66,68 +69,93 @@ class MWizardScriptDDDUpdate
 
     public function generate()
     {
-        require $this->pathSource . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'vendor/autoload.php';
 
         $this->scanSource();
         $this->errors = array();
-        mdump('file script: ' . $this->fileScript);
-        $this->ini = parse_ini_file($this->fileScript, true);
+        mdump('yaml file: ' . $this->fileScript);
+        $this->ini = Yaml::parseFile($this->fileScript);
+        mdump($this->ini);
+        $this->scanSource();
+        $this->errors = array();
         $tab = '    ';
-        $this->globals->dbName = $this->ini['globals']['database'];
-        $this->globals->appName = $this->ini['globals']['app'];
-        $this->globals->moduleName = $this->ini['globals']['module'] ?: $this->globals->appName;
-        $this->globals->packageName = $this->ini['globals']['package'];
+        $this->globals->dbName = $this->ini['database'];
+        $this->globals->appName = $this->ini['app'];
+        $this->globals->moduleName = $this->ini['module'] ?: $this->globals->appName;
+        $this->globals->packageName = $this->ini['package'];
         $this->globals->actions[] = $tab . "'{$this->globals->moduleName}' => ['{$this->globals->moduleName}', '{$this->globals->moduleName}/main/main', '{$this->globals->moduleName}IconForm', '', A_ACCESS, [";
         $this->baseService = false;
 
         $template = new MWizardTemplate();
         $template->rrmdir($this->pathTarget . "/{$this->globals->moduleName}");
 
+        include $this->pathSource . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'vendor/autoload.php';
+
         $controllers = [];
         $repository = [];
         $application = [];
         $domain = [];
         $exception = [];
+        $this->meta = [];
 
-        foreach ($this->ini as $className => $node) {
-            if ($className == 'globals')
-                continue;
-            if ($node['type'] == 'controller') {
-                if (is_array($node['includes'])) {
-                    foreach ($node['includes'] as $actionName => $actionData) {
-                        $controllers[$className][$actionName] = $this->ini['interface' . $actionName . 'Action'];
+        foreach ($this->ini as $section => $sectionNode) {
+            mdump('section = ' . $section);
+            if ($section == 'controller') {
+                if (is_array($sectionNode['includes'])) {
+                    foreach ($sectionNode['includes'] as $actionName => $actionData) {
+                        $controllers[$section][$actionName] = $this->ini['interface' . $actionName . 'Action'];
                     }
                 }
             }
-            if ($node['type'] == 'service') {
-                if ($node['typeSystem'] == 'application') {
-                    $application[$className] = $node;
-                }
-                if ($node['typeSystem'] == 'domain') {
-                    $domain[$className] = $node;
+            if ($section == 'domain') {
+                foreach ($sectionNode as $className => $node) {
+                    $this->generateModel($node, $className);
+                    $this->generatePersistentModel($node, $className);
                 }
             }
-            if ($node['type'] == 'repository') {
-                $repository[$className] = $node;
+
+            if ($section == 'service') {
+                foreach ($sectionNode as $subSection => $subSectionNode) {
+                    if ($subSection == 'application') {
+                        foreach ($subSectionNode as $packageName => $packageNode) {
+                            foreach ($packageNode as $className => $node) {
+                                $application[$packageName . '_ '. $className] = $node;
+                            }
+                        }
+                    }
+                    if ($subSection == 'domain') {
+                        foreach ($subSectionNode as $packageName => $packageNode) {
+                            foreach ($packageNode as $className => $node) {
+                                $domain[$packageName . '_ '. $className] = $node;
+                            }
+                        }
+                    }
+                }
             }
-            if ($node['type'] == 'exception') {
-                $exception[$className] = $node;
+            if ($section == 'repository') {
+                foreach ($sectionNode as $className => $node) {
+                    $repository[$className] = $node;
+                }
             }
-            if ($node['type'] == 'model') {
-                $this->generateModel($node, $className);
-                $this->generatePersistentModel($node, $className);
+            if ($section == 'exception') {
+                foreach ($sectionNode as $className => $node) {
+                    $exception[$className] = $node;
+                }
             }
-            if ($node['type'] == 'enumration') {
-                $this->generateEnumeration($node, $className);
+            if ($section == 'enumeration') {
+                foreach ($sectionNode as $className => $node) {
+                    $this->generateEnumeration($node, $className);
+                }
             }
+
         }
+
 
         $this->generateRepository($repository);
         $this->generateDomain($domain);
         $this->generateBaseService();
         $this->generateApplication($application);
-        $this->generateControllers($controllers);
-        $this->generateException($exception);
+        //$this->generateControllers($controllers);
+        //$this->generateException($exception);
         $this->generateConf();
         $this->generateModelTrait();
 
@@ -138,17 +166,18 @@ class MWizardScriptDDDUpdate
         $template = new MWizardTemplate();
         $template->copydir($this->pathSource . DIRECTORY_SEPARATOR . 'utils', "{$this->pathTarget}/{$this->globals->moduleName}/src/utils");
         // Copia a pasta services/integration, se existir
-        $files = $this->files['services']['integration'];
+        $files = $this->files['services']['integration'] ?: [];
         if (count($files)) {
             mdump($files);
             foreach ($files as $system => $services) {
-                foreach($services as $fileName) {
-                    $fileSource = $this->pathSource . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'integration' . DIRECTORY_SEPARATOR . $system . DIRECTORY_SEPARATOR .$fileName;
+                foreach ($services as $fileName) {
+                    $fileSource = $this->pathSource . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'integration' . DIRECTORY_SEPARATOR . $system . DIRECTORY_SEPARATOR . $fileName;
                     $template = new MWizardTemplate();
                     $template->copy($fileSource, "{$this->globals->moduleName}/src/services/integration/{$system}/{$fileName}", $this->pathTarget);
                 }
             }
         }
+
     }
 
     /**
@@ -208,7 +237,7 @@ HERE;
 
             // Copia todas as views do controller (não cria views)
             $files = $this->files['views'][$lcName];
-            foreach($files as $fileName) {
+            foreach ($files as $fileName) {
                 $fileSource = $this->pathSource . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . $lcName . DIRECTORY_SEPARATOR . $fileName;
                 $template = new MWizardTemplate();
                 $template->copy($fileSource, "{$this->globals->moduleName}/src/views/{$lcName}/{$fileName}", $this->pathTarget);
@@ -227,7 +256,7 @@ HERE;
                 }
             }
             $usesStr = '';
-            foreach($uses as $i => $use) {
+            foreach ($uses as $i => $use) {
                 $usesStr .= "use {$use};\n";
             }
             $var = array();
@@ -273,23 +302,24 @@ HERE;
     {
         foreach ($application as $applicationName => $node) {
             mdump('handleApplication = ' . $applicationName);
-            $system = $node['system'];
-            $name = $node['name'];
-            $nameService = $node['name'] . 'Service';
+            list($package, $name) = explode('_', $applicationName);
+            $meta = $node['meta'];
+            $nameService = $name . 'Service';
             $var = array();
             $var['module'] = $this->globals->moduleName ?: $this->globals->appName;
-            $var['system'] = $system;
+            $var['system'] = $package;
             $var['service'] = $name;
             $var['package'] = $node['package'];
-            $var['comment'] = base64_decode($node['comment']);
+            $var['comment'] = $meta['comment'];
             $i = $j = 0;
-            $includes = $node['includes'];
+
+            $includes = $node['services'];
             $servicesAttributes = $servicesParameters = $servicesSet = "";
             if (is_array($includes)) {
                 foreach ($includes as $includeStr) {
-                    $include = explode(',', $includeStr); // 0-system, 1-service,  2-'service'
-                    $attribute = $this->lcFirstLetter($include[0]) . $include[1];
-                    $servicesParameters .= ($i > 0 ? ",\n        " : "") . "\\" . $var['module'] . "\\services\\" . $include[3] . "\\" . $include[0] . "\\" . $include[1] . "Service " . "\$" . $attribute;
+                    $path = explode('\\', $includeStr);
+                    $attribute = $this->lcFirstLetter($path[1] ?: $path[0]);
+                    $servicesParameters .= ($i > 0 ? ",\n        " : "") . "\\" . $this->globals->packageName . "\\services\\domain\\" . $includeStr . " \$" . $attribute;
                     $servicesSet .= ($i > 0 ? "\n        " : "") . "\$this->" . $attribute . " = \$" . $attribute . ";";
                     $servicesAttributes .= "\n    protected \$" . $attribute . ";";
                     ++$i;
@@ -299,8 +329,8 @@ HERE;
                 $var['servicesSet'] = $servicesSet;
             }
             $methods = [];
-            if ($this->files['services']['application'][$system][$nameService]) {
-                $namespace = $this->globals->moduleName . "\\services\\application\\{$system}\\" . $nameService;
+            if ($this->files['services']['application'][$package][$nameService]) {
+                $namespace = $this->globals->moduleName . "\\services\\application\\{$package}\\" . $nameService;
                 $oReflectionClass = new ReflectionClass($namespace);
                 $fileClass = file($oReflectionClass->getFileName());
                 foreach ($oReflectionClass->getMethods() as $method) {
@@ -323,15 +353,16 @@ HERE;
             if ($methods['run']) {
                 $body = $this->getMethodBody($methods['run'], $fileClass);
             }
-            $comment = base64_decode($node['comment']);
-            $package = $node['package'];
+            $comment = $meta['comment'];
+            $docParams = '';
+            $return = '';
             $applicationMethods = <<<HERE
     /**
      * {$comment}{$docParams}{$throws}    
      * @package {$package}
      * @return {$return}
      */
-    public function run(\\PlainObject \$parametros = null)
+    public function run(\$parametros = null)
 {$body}
 HERE;
 
@@ -353,7 +384,7 @@ HERE;
             $template->setVar($var);
             $template->setTemplate('/public/files/templates/ddd_application_service.php');
             $template->apply();
-            $template->saveResult("{$this->globals->moduleName}/src/services/application/{$system}/{$nameService}.php", $this->pathTarget);
+            $template->saveResult("{$this->globals->moduleName}/src/services/application/{$package}/{$nameService}.php", $this->pathTarget);
         }
     }
 
@@ -365,23 +396,23 @@ HERE;
     {
         foreach ($domain as $domainName => $node) {
             mdump('handleDomain = ' . $domainName);
-            $system = $node['system'];
-            $name = $node['name'];
-            $nameService = $node['name'] . 'Service';
+            list($package, $name) = explode('_', $domainName);
+            $meta = $node['meta'];
+            $nameService = $name . 'Service';
             $var = array();
             $var['module'] = $this->globals->moduleName ?: $this->globals->appName;
-            $var['system'] = $system;
+            $var['system'] = $package;
             $var['service'] = $name;
-            $var['package'] = $node['package'];
-            $var['comment'] = base64_decode($node['comment']);
+            $var['package'] = $package;
+            $var['comment'] = $meta['comment'];
             $i = $j = 0;
-            $includes = $node['includes'];
+            $includes = $node['services'];
             $servicesAttributes = $servicesParameters = $servicesSet = "";
             if (is_array($includes)) {
                 foreach ($includes as $includeStr) {
-                    $include = explode(',', $includeStr); // 0-system, 1-service,  2-'service'
-                    $attribute = $this->lcFirstLetter($include[0]) . $include[1];
-                    $servicesParameters .= ($i > 0 ? ",\n        " : "") . "\\" . $var['module'] . "\\services\\" . $include[3] . "\\" . $include[0] . "\\" . $include[1] . "Service " . "\$" . $attribute;
+                    $include = $this->meta[$includeStr];
+                    $attribute = $this->lcFirstLetter($includeStr);
+                    $servicesParameters .= ($i > 0 ? ",\n        " : "") . "\\" . $this->globals->packageName . "\\services\\domain\\" . $includeStr . "Service " . "\$" . $attribute;
                     $servicesSet .= ($i > 0 ? "\n        " : "") . "\$this->" . $attribute . " = \$" . $attribute . ";";
                     $servicesAttributes .= "\n    protected \$" . $attribute . ";";
                     ++$i;
@@ -391,8 +422,8 @@ HERE;
                 $var['servicesSet'] = $servicesSet;
             }
             $methods = [];
-            if ($this->files['services']['domain'][$system][$nameService]) {
-                $namespace = $this->globals->moduleName . "\\services\\domain\\{$system}\\" . $nameService;
+            if ($this->files['services']['domain'][$package][$nameService]) {
+                $namespace = $this->globals->packageName . "\\services\\domain\\{$package}\\" . $nameService;
                 $oReflectionClass = new ReflectionClass($namespace);
                 $fileClass = file($oReflectionClass->getFileName());
                 foreach ($oReflectionClass->getMethods() as $method) {
@@ -413,64 +444,50 @@ HERE;
             }
 
             $i = $j = 0;
-            $references = $node['references'];
+            $repositories = $node['repositories'];
             $reposAttributes = $reposParameters = $reposSet = "";
+            if (is_array($repositories)) {
+                foreach ($repositories as $repository) {
+                    $repositoryNode = $this->meta[$repository];
+                    $attrRef = $this->lcFirstLetter($repository);
+                    $reposParameters .= ($i > 0 ? ",\n        " : "") . "\\" . $var['module'] . "\\contracts\\repository\\" . $repository . "Interface \$" . $attrRef;
+                    $reposSet .= ($i > 0 ? "\n        " : "") . "\$this->" . $attrRef . " = \$" . $attrRef . ";";
+                    $reposAttributes .= "\n    protected \$" . $attrRef . ";";
+                    ++$i;
+                }
+                $var['reposAttributes'] = $reposAttributes;
+                $var['reposParameters'] = (($servicesParameters != '') ? ",\n        " : "") .$reposParameters;
+                $var['reposSet'] = $reposSet;
+            }
             $atomic = true;
-            if (is_array($references)) {
-                foreach ($references as $reference) {
-                    $referenceNode = $this->ini[$reference];
-                    if ($referenceNode['type'] == 'repository') {
-                        $attrRef = $this->lcFirstLetter($reference);
-                        $reposParameters .= ($i > 0 ? ",\n        " : "") . "\\" . $var['module'] . "\\contracts\\repository\\" . $reference . "Interface \$" . $attrRef;
-                        $reposSet .= ($i > 0 ? "\n        " : "") . "\$this->" . $attrRef . " = \$" . $attrRef . ";";
-                        $reposAttributes .= "\n    protected \$" . $attrRef . ";";
-                        ++$i;
-                    } else {
-                        $referenceNode = $this->ini[$reference . 'Class'];
-                        if ($referenceNode['type'] == 'serviceclass') {
-                            $atomic = false;
-                            $classNode = $referenceNode;//$this->ini[$reference . 'Class'];
-                            $operations = $classNode['operations'];
-                            if (is_array($operations)) {
-                                $domainMethods = '';
-                                foreach ($operations as $operationName => $operationData) {
-                                    $docParams = "\n";
-                                    $opData = explode(',', $operationData);
-                                    $parameters = '';
-                                    $return = array_shift($opData);
-                                    $comment = array_shift($opData);
-                                    if ($comment != '') {
-                                        $comment = base64_decode($comment);
-                                    }
-                                    if (count($opData)) {
-                                        //$param = array_slice($opData, 1);
-                                        $parameters = implode(', ', $opData);
-                                        foreach ($opData as $p) {
-                                            $docParams .= "     * @param " . $p;
-                                        }
-                                    }
-                                    $body = "    {\n    }\n";
-                                    if ($methods[$operationName]) {
-                                        $body = $this->getMethodBody($methods[$operationName], $fileClass);
-                                    }
-                                    $domainMethods .= <<<HERE
+            if (is_array($node['operations'])) {
+                $operations = $node['operations'];
+                $atomic = false;
+                $domainMethods = '';
+                foreach ($operations as $operationName => $operation) {
+                    $docParams = "\n";
+                    $signature = $this->getSignature($operationName, $operation['parameters']);
+                    $comment = $operation['comment'];
+                    $return = $operation['return'];
+                    if (count($operation['parameters'])) {
+                        foreach ($operation['parameters'] as $p) {
+                            $docParams .= "     * @param " . $p;
+                        }
+                    }
+                    $body = "    {\n    }\n";
+                    if ($methods[$operationName]) {
+                        $body = $this->getMethodBody($methods[$operationName], $fileClass);
+                    }
+                    $domainMethods .= <<<HERE
     /**
      * {$comment}{$docParams}{$throws}          
      * @return {$return}
      */
-     public function {$operationName}({$parameters})
+    public function {$signature}
 {$body}
 HERE;
 
-                                }
-                            }
-                        }
-                    }
                 }
-                $var['reposAttributes'] = $reposAttributes;
-                $var['reposParameters'] = $reposParameters;
-                $var['reposSet'] = $reposSet;
-                $var['servicesParameters'] .= ((($servicesParameters != '') && ($reposParameters != '')) ? ',' : '');
             }
 
             foreach ($methods as $method) {
@@ -511,7 +528,7 @@ HERE;
             $template->setVar($var);
             $template->setTemplate('/public/files/templates/ddd_domain_service.php');
             $template->apply();
-            $template->saveResult("{$this->globals->moduleName}/src/services/domain/{$system}/{$nameService}.php", $this->pathTarget);
+            $template->saveResult("{$this->globals->moduleName}/src/services/domain/{$package}/{$nameService}.php", $this->pathTarget);
         }
     }
 
@@ -524,24 +541,26 @@ HERE;
 
         foreach ($repository as $repositoryName => $node) {
             mdump('handleRepository = ' . $repositoryName);
+            $meta = $node['meta'];
+            $this->meta[$repositoryName] = $meta;
             $var = array();
             $var['originalClass'] = $repositoryName;
             $var['module'] = $this->globals->moduleName ?: $this->globals->appName;
-            $var['package'] = $node['package'] . "\\Contracts\\Repository";
-            $var['comment'] = base64_decode($node['comment']);
+            $var['package'] = $meta['package'] . "\\Contracts\\Repository";
+            $var['comment'] = $meta['comment'];
             // handle Contracts
             $methods = [];
             $operations = $node['operations'];
             if (is_array($operations)) {
                 $repositoryContracts = '';
-                foreach ($operations as $operationName => $operationData) {
-                    $signature = $this->getSignature($operationName, $operationData);
+                foreach ($operations as $operationName => $operation) {
+                    $signature = $this->getSignature($operationName, $operation['parameters']);
                     $repositoryContracts .= <<<HERE
     /**
      *
-     * @return {$signature[1]}
+     * @return {$operation['return']}
      */
-     public function {$signature[0]};
+     public function {$signature};
 
 HERE;
                 }
@@ -557,7 +576,7 @@ HERE;
             // handle Persistence
 
             $methods = [];
-            $persistences = ['maestro', 'redis'];
+            $persistences = [$meta['orm']];
             foreach ($persistences as $persistence) {
                 if ($this->files['persistence'][$persistence]['repositories'][$repositoryName]) {
                     $namespace = $this->globals->moduleName . "\\persistence\\{$persistence}\\repositories\\" . $repositoryName;
@@ -573,8 +592,8 @@ HERE;
                 $operations = $node['operations'];
                 if (is_array($operations)) {
                     $repositoryMethods = '';
-                    foreach ($operations as $operationName => $operationData) {
-                        $signature = $this->getSignature($operationName, $operationData);
+                    foreach ($operations as $operationName => $operation) {
+                        $signature = $this->getSignature($operationName, $operation['parameters']);
                         $body = "    {\n    }\n";
                         if ($methods[$operationName]) {
                             $body = $this->getMethodBody($methods[$operationName], $fileClass);
@@ -582,9 +601,9 @@ HERE;
                         $repositoryMethods .= <<<HERE
     /**
      *
-     * @return {$signature[1]}
+     * @return {$operation['return']}
      */
-    public function {$signature[0]}
+    public function {$signature}
 {$body}
 HERE;
                     }
@@ -600,16 +619,17 @@ HERE;
 HERE;
                     }
                 }
-                $references = $node['references'];
+                $references = $node['models'];
                 if (is_array($references)) {
                     $repositoryUses = '';
                     foreach ($references as $refName => $reference) {
-                        $repositoryUses .= "use {$this->globals->moduleName}\\persistence\\{$persistence}\\models\\{$reference} as {$reference}Persistente;\n";
+                        $repositoryUses .= "use {$this->globals->packageName}\\persistence\\{$persistence}\\models\\{$reference} as {$reference}Persistente;\n";
                     }
                 }
                 $var['uses'] = $repositoryUses;
                 $var['services'] = $repositoryMethods;
-                $var['package'] = $node['package'] . "\\Persistence\\" . ucFirst($persistence) . "\\Repositories";
+                $var['db'] = $this->globals->dbName;
+                $var['package'] = "{$this->globals->packageName}\\Persistence\\" . ucFirst($persistence) . "\\" . $node['package'];
 
                 $template = new MWizardTemplate();
                 $template->setVar($var);
@@ -692,6 +712,7 @@ HERE;
             $template->saveResult("{$this->globals->moduleName}/src/exceptions/{$name}.php", $this->pathTarget);
         }
     }
+
     /**
      * Generate Model
      * @param $node
@@ -701,18 +722,19 @@ HERE;
     {
         mdump('handleModel = ' . $className);
         $lcClassName = strtolower($className);
-        $classComment = base64_decode($node['comment']);
+        $meta = $node['meta'];
+        $classComment = base64_decode($meta['comment']);
 
         $var = array();
         $var['class'] = $lcClassName;
         $var['originalClass'] = $className;
         $var['model'] = $className;
         $var['module'] = $this->globals->moduleName ?: $this->globals->appName;
-        $var['package'] = $node['package'];
+        $var['package'] = $meta['package'];
 
         $methods = [];
         if ($this->files['models'][$className]) {
-            $namespace = $this->globals->moduleName . "\\models\\" . $className;
+            $namespace = "\\" . $this->globals->packageName . "\\models\\" . $className;
             $oReflectionClass = new ReflectionClass($namespace);
             $fileClass = file($oReflectionClass->getFileName());
             foreach ($oReflectionClass->getMethods() as $method) {
@@ -726,8 +748,7 @@ HERE;
         $getterSetter = $properties = '';
         $initAttr = '';
         $attributes = $node['attributes'];
-        foreach ($attributes as $attributeName => $attributeData) {
-            $at = explode(',', $attributeData);
+        foreach ($attributes as $attributeName => $attribute) {
             // atData:
             // 0 - column
             // 1 - type
@@ -735,12 +756,12 @@ HERE;
             // 3 - key type
             // 4 - generator
             // 5 - comment
-            $isPK = ($at[3] == 'primary');
-            $isFK = ($at[3] == 'foreign');
+            $isPK = ($attribute['key'] == 'primary');
+            $isFK = ($attribute['key'] == 'foreign');
             $ucAttributeName = ucfirst($attributeName);
-            $attributeType = $at[1];
+            $attributeType = $attribute['type'];
             $lowerAttrType = strtolower($attributeType);
-            $attrComment = base64_decode($at[5]);
+            $attrComment = base64_decode($attribute['comment']);
             $setterBody = "\$this->{$attributeName} = \$value;\n        return \$this;";
             if ($lowerAttrType == 'currency') {
                 $setterBody = "if (!(\$value instanceof \\MCurrency)) {\n            \$value = new \\MCurrency((float) \$value);\n        }\n        ";
@@ -813,25 +834,24 @@ HERE;
         }
         $associations = $node['associations'];
         if (is_array($associations)) {
-            foreach ($associations as $associationName => $associationData) {
-                $assoc = explode(',', $associationData);
+            foreach ($associations as $associationName => $association) {
                 // assoc:
                 // 0 - toClass
                 // 1 - cardinality
                 // 2 - keys or associative
-                $attributeType = "\\" . str_replace("persistence\\maestro\\", '', $assoc[0]);
-                $keys = explode(':', $assoc[2]);
-                $aToClass = explode('\\', $assoc[0]);
-                $toClass = $aToClass[count($aToClass) - 1];
+                $attributeType = "\\" . $this->globals->packageName . "\\persistence\\" . $meta['orm'] . "\\models\\" . $association['model'];
+                //$aToClass = explode('\\', $assoc[0]);
+                //$toClass = $aToClass[count($aToClass) - 1];
                 $ucAssociationName = ucfirst($associationName);
-                if ($assoc[1] == 'oneToOne') {
-                    $type = $toClass;
+                $type = $association['model'];
+                if ($association['cardinality'] == 'oneToOne') {
+                    $keys = explode(':', $association['keys']);
                     $uKey = ucFirst($keys[1]);
                     $setterBody = "parent::set{$ucAssociationName}(\$value);\n        \$this->set{$keys[0]}(\$value->get{$uKey}());";
                     $initAttr .= "        \$this->{$associationName} = null;\n";
                 } else {
-                    $type = "Association [{$toClass}]";
-                    $setterBody =  "\$this->{$attributeName} = \$value;\n        return \$this;";
+                    $type = "Association [{$type}]";
+                    $setterBody = "\$this->{$attributeName} = \$value;\n        return \$this;";
                     $initAttr .= "        \$this->{$associationName} = new \\ArrayObject([]);\n";
                 }
 
@@ -893,20 +913,14 @@ HERE;
         $operations = $node['operations'];
         $modelOperations = '';
         if (is_array($operations)) {
-            foreach ($operations as $operationName => $operationData) {
-                $opData = explode(',', $operationData);
+            foreach ($operations as $operationName => $operation) {
                 $parameters = '';
                 $parametersVar = '';
-                $return = array_shift($opData);
-                $comment = array_shift($opData);
-                if ($comment != '') {
-                    $comment = base64_decode($comment);
-                }
-                if (count($opData)) {
-                    $parameters = implode(',', $opData);
-                    foreach ($opData as $p) {
-                        $v = explode(' ', $p);
-                        $parametersVar .= $v[1];
+                $return = $operation['return'];
+                $comment = $operation['comment'];
+                if (count($operation['parameters'])) {
+                    foreach ($operation['parameters'] as $parameter) {
+                        $parametersVar .= $parameters;
                     }
                 }
                 $body = "    {\n    }\n";
@@ -935,6 +949,7 @@ HERE;
         $template->applyClass();
         $template->saveResult("{$this->globals->moduleName}/src/models/{$className}.php", $this->pathTarget);
     }
+
     /**
      * Generate Persistent Model
      * @param $node
@@ -943,6 +958,8 @@ HERE;
     public function generatePersistentModel($node, $className)
     {
         mdump('handlePersistentModel  = ' . $className);
+        $meta = $node['meta'];
+        $classComment = base64_decode($meta['comment']);
         $tab = '    ';
         $lcClassName = strtolower($className);
 
@@ -951,11 +968,11 @@ HERE;
         $var['originalClass'] = $className;
         $var['model'] = $className;
         $var['module'] = $this->globals->moduleName ?: $this->globals->appName;
-        $var['package'] = $node['package'];
+        $var['package'] = $meta['package'];
 
         $methods = [];
-        if ($this->files['persistence']['maestro']['models'][$className]) {
-            $namespace = $this->globals->moduleName . "\\persistence\\maestro\\models\\" . $className;
+        if ($this->files['persistence'][$meta['orm']]['models'][$className]) {
+            $namespace = "\\" . $this->globals->moduleName . "\\persistence\\" . $meta['orm'] . "\\models\\" . $className;
             $oReflectionClass = new ReflectionClass($namespace);
             $fileClass = file($oReflectionClass->getFileName());
             foreach ($oReflectionClass->getMethods() as $method) {
@@ -967,8 +984,8 @@ HERE;
         }
 
         $propertiesPersistence = $validators = '';
-        $extends = $node['extends'];
-        $log = $node['log'];
+        $extends = $meta['extends'];
+        $log = $meta['log'];
 
         $document = $ormmap = $docassoc = $docattr = $attributes = [];
         $document[] = '';
@@ -977,7 +994,7 @@ HERE;
         $ormmap[] = $tab . $tab . 'return [';
         $ormmap[] = $tab . $tab . $tab . "'class' => \get_called_class(),";
         $ormmap[] = $tab . $tab . $tab . "'database' => " . (substr($this->globals->dbName, 0, 1) == "\\" ? $this->globals->dbName . ',' : "'{$this->globals->dbName}',");
-        $tableName = $node['table'];
+        $tableName = $meta['table'];
         $ormmap[] = $tab . $tab . $tab . "'table' => '{$tableName}',";
         if ($extends) {
             $ormmap[] = $tab . $tab . $tab . "'extends' => '{$extends}',";
@@ -986,10 +1003,9 @@ HERE;
         $pk = '';
         $getterSetterPersistence = "";
         $attributes = $node['attributes'];
-        foreach ($attributes as $attributeName => $attributeData) {
+        foreach ($attributes as $attributeName => $attribute) {
             $isPK = $isFK = false;
             $ucAttributeName = ucfirst($attributeName);
-            $at = explode(',', $attributeData);
             // atData:
             // 0 - column
             // 1 - type
@@ -997,27 +1013,27 @@ HERE;
             // 3 - key type
             // 4 - generator
             // 5 - comment
-            $attrComment = base64_decode($at[5]);
-            $attribute = $tab . $tab . $tab . "'{$attributeName}' => [";
-            $attribute .= "'column' => '{$at[0]}'";
-            if ($at[3]) {
-                $attribute .= ",'key' => '{$at[3]}'";
-                $isPK = $at[3] == 'primary';
-                $isFK = $at[3] == 'foreign';
+            $attrComment = $attribute['comment'];
+            $attributeLine = $tab . $tab . $tab . "'{$attributeName}' => [";
+            $attributeLine .= "'column' => '{$attribute['field']}'";
+            if ($attribute['key']) {
+                $attributeLine .= ",'key' => '{$attribute['key']}'";
+                $isPK = $attribute['key'] == 'primary';
+                $isFK = $attribute['key'] == 'foreign';
                 if ($isPK) {
                     $pk = $attributeName;
-                    if ($at[4]) {
-                        $attribute .= ",'idgenerator' => '{$at[4]}'";
+                    if ($attribute['idgenerator']) {
+                        $attributeLine .= ",'idgenerator' => '{$attribute['idgenerator']}'";
                     } else {
-                        $attribute .= ",'idgenerator' => 'identity'";
+                        $attributeLine .= ",'idgenerator' => 'identity'";
                     }
                 }
             }
-            if (($at[2] == 'not null') && (!$isPK)) {
+            if (($attribute['null'] == 'not null') && (!$isPK)) {
                 $validators .= "\n    " . $tab . $tab . $tab . "'{$attributeName}' => ['notnull'],";
             }
-            $attributeType = $at[1];
-            $attribute .= ",'type' => '{$attributeType}'],";
+            $attributeType = $attribute['type'];
+            $attributeLine .= ",'type' => '{$attributeType}'],";
 
             if ($isFK) {
                 $propertiesPersistence .= <<<HERE
@@ -1042,7 +1058,7 @@ HERE;
 {$body}
 HERE;
                 $setOperation = "set" . ucfirst($attributeName);
-                $body = "    {\n        ". "\$this->{$attributeName} = \$value;\n        return \$this;" . "\n    }\n";
+                $body = "    {\n        " . "\$this->{$attributeName} = \$value;\n        return \$this;" . "\n    }\n";
                 if ($methods[$setOperation]) {
                     $body = $this->getMethodBody($methods[$setOperation], $fileClass);
                 }
@@ -1056,35 +1072,34 @@ HERE;
 {$body}
 HERE;
             }
-            $docattr[] = $tab . $attribute;
+            $docattr[] = $tab . $attributeLine;
 
         }
 
         $docassoc = array();
         $associations = $node['associations'];
         if (is_array($associations)) {
-            foreach ($associations as $associationName => $associationData) {
-                $assoc = explode(',', $associationData);
+            foreach ($associations as $associationName => $association) {
                 // assoc:
                 // 0 - toClass
                 // 1 - cardinality
                 // 2 - keys or associative
-                $attributeType = "\\" .str_replace("persistence\\maestro\\", '', $assoc[0]);
-                $association = $tab . $tab . $tab . "'{$associationName}' => [";
-                $association .= "'toClass' => '{$assoc[0]}'";
-                $association .= ", 'cardinality' => '{$assoc[1]}' ";
-                if ($assoc[1] == 'manyToMany') {
-                    $association .= ", 'associative' => '{$assoc[2]}'], ";
+                $attributeType = "\\" . $this->globals->packageName . "\\persistence\\". $meta['orm'] . "\\models\\" . $association['model'];
+                $associationLine = $tab . $tab . $tab . "'{$associationName}' => [";
+                $associationLine .= "'toClass' => '{$association['model']}'";
+                $associationLine .= ", 'cardinality' => '{$association['cardinality']}' ";
+                if ($association['cardinality'] == 'manyToMany') {
+                    $associationLine .= ", 'associative' => '{$association['associative']}'], ";
                 } else {
-                    $association .= ", 'keys' => '{$assoc[2]}'], ";
+                    $associationLine .= ", 'keys' => '{$association['keys']}'], ";
                 }
-                $keys = explode(':', $assoc[2]);
-                $aToClass = explode('\\', $assoc[0]);
-                $toClass = $aToClass[count($aToClass) - 1];
+                $keys = explode(':', $association['keys']);
+                //$aToClass = explode('\\', $assoc[0]);
+                //$toClass = $aToClass[count($aToClass) - 1];
 
                 $ucAssociationName = ucfirst($associationName);
 
-                if ($assoc[1] == 'oneToOne') {
+                if ($association['cardinality'] == 'oneToOne') {
                     $type = $attributeType;
                     $uKey = ucFirst($keys[1]);
                     $set = "parent::set{$ucAssociationName}(\$value);\n        \$this->set{$keys[0]}(\$value->get{$uKey}());\n        ";
@@ -1109,7 +1124,7 @@ HERE;
 {$body}
 HERE;
                 $setOperation = "set" . $ucAssociationName;
-                $body = "    {\n        {$set}\$this->{$associationName} = \$value; return \$this;\n    }\n";
+                $body = "    {\n        {$set}\$this->{$associationName} = \$value;\n        return \$this;\n    }\n";
                 if ($methods[$setOperation]) {
                     $body = $this->getMethodBody($methods[$setOperation], $fileClass);
                 }
@@ -1122,7 +1137,7 @@ HERE;
     public function set{$ucAssociationName}({$attributeType} \$value)
 {$body}
 HERE;
-                $docassoc[] = $tab . $association;
+                $docassoc[] = $tab . $associationLine;
             }
         }
 
@@ -1142,21 +1157,14 @@ HERE;
         $operations = $node['operations'];
         $modelOperationsPersistence = '';
         if (is_array($operations)) {
-            foreach ($operations as $operationName => $operationData) {
-                $opData = explode(',', $operationData);
+            foreach ($operations as $operationName => $operation) {
                 $parameters = '';
                 $parametersVar = '';
-                $return = array_shift($opData);
-                $comment = array_shift($opData);
-                if ($comment != '') {
-                    $comment = base64_decode($comment);
-                }
-                if (count($opData)) {
-                    //$param = array_slice($opData, 1);
-                    $parameters = implode(',', $opData);
-                    foreach ($opData as $p) {
-                        $v = explode(' ', $p);
-                        $parametersVar .= $v[1];
+                $return = $operation['return'];
+                $comment = $operation['comment'];
+                if (count($operation['parameters'])) {
+                    foreach ($operation['parameters'] as $parameter) {
+                        $parametersVar .= $parameter;
                     }
                 }
 
@@ -1175,7 +1183,7 @@ HERE;
 HERE;
             }
         }
-        $description = $node['description'] ?: $pk;
+        $description = $meta['description'] ?: $pk;
 
         $ormmap[] = $tab . $tab . $tab . "'attributes' => [";
         foreach ($docattr as $attr) {
@@ -1190,7 +1198,7 @@ HERE;
         $ormmap[] = $tab . $tab . "];";
 
         $ormmapdef = implode("\n", $ormmap);
-        $this->generatedMaps[$originalClassName] = $ormmapdef;
+        //$this->generatedMaps[$originalClassName] = $ormmapdef;
 
         $document[] = $ormmapdef;
         $document[] = $tab . "}";
@@ -1215,7 +1223,7 @@ HERE;
         $template->setVar($var);
         $template->setTemplate('/public/files/templates/ddd_model_persistence_maestro.php');
         $template->applyClass();
-        $template->saveResult("{$this->globals->moduleName}/src/persistence/maestro/models/{$className}.php", $this->pathTarget);
+        $template->saveResult("{$this->globals->moduleName}/src/persistence/{$meta['orm']}/models/{$className}.php", $this->pathTarget);
 
 
         // define actions
@@ -1263,7 +1271,7 @@ HERE;
 
         if ($tableName) {
             $sessionId = Manager::getSession()->getId();
-            $url = Manager::getAppURL($appName, $moduleName . '/tabelageral/getenumeration/' . $tableName . "?ajaxResponseType=JSON", true);
+            $url = Manager::getAppURL($this->globals->appName, $this->globals->moduleName . '/tabelageral/getenumeration/' . $tableName . "?ajaxResponseType=JSON", true);
             //mdump($url);
             if ($stream = fopen($url, 'r')) {
                 $result = MJSON::decode(stream_get_contents($stream));
@@ -1283,17 +1291,17 @@ HERE;
 
         $var = array();
         $var['class'] = $className;
-        $var['originalClass'] = $originalClassName;
+        $var['originalClass'] = $className;
         $var['model'] = $className;
-        $var['module'] = $moduleName ?: $appName;
-        $var['moduleName'] = $moduleName;
+        $var['module'] = $this->globals->moduleName ?: $this->globals->appName;
+        $var['moduleName'] = $this->globals->moduleName;
         $var['default'] = $node['default'] ?: 'DEFAULT';
         $var['constants'] = $consts;
         $var['properties'] = $properties;
-        $var['comment'] = $comment;
-        $var['package'] = $appName;
-        $var['extends'] = $extends ?: '\MEnumBase';
-        $var['description'] = $description;
+        $var['comment'] = '';
+        $var['package'] = $this->globals->appName;
+        $var['extends'] = $this->globals->extends ?: '\MEnumBase';
+        $var['description'] = $this->globals->description;
         // Create Model & Map
         $moduleName = $var['moduleName'];
 
@@ -1301,13 +1309,13 @@ HERE;
         $template->setVar($var);
         $template->setTemplate('/public/files/templates/ddd_enum_model.php');
         $template->applyClass();
-        $template->saveResult("{$moduleName}/src/models/{$originalClassName}.php", $this->baseDir);
+        $template->saveResult("{$moduleName}/src/models/{$className}.php", $this->baseDir);
 
         $template = new MWizardTemplate();
         $template->setVar($var);
         $template->setTemplate('/public/files/templates/ddd_enum_map.php');
         $template->applyClass();
-        $template->saveResult("{$moduleName}/src/persistence/maestro/{$className}/{$originalClassName}Map.php", $this->baseDir);
+        $template->saveResult("{$moduleName}/src/persistence/maestro/{$className}/{$className}Map.php", $this->baseDir);
 
     }
 
@@ -1362,15 +1370,10 @@ HERE;
 
     }
 
-    public function getSignature($operationName, $operationData = [])
+    public function getSignature($operationName, $parameters = [])
     {
-        $opData = explode(',', $operationData);
-        $parameters = '';
-        $return = array_shift($opData);
-        if (count($opData)) {
-            $parameters = implode(', ', $opData);
-        }
-        return [$operationName . '(' . $parameters . ')', $return];
+        $parametersList = implode(',', $parameters);
+        return $operationName . '(' . $parametersList . ')';
     }
 
     public function getMethodBody($method, $file)

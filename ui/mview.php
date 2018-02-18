@@ -19,6 +19,27 @@
 class MView extends MBaseView
 {
 
+    /**
+     * Processa o arquivo da view e inclui o conteudo no objeto Page.
+     * @param type $controller
+     * @param type $parameters
+     * @return type
+     */
+    public function process($controller, $parameters)
+    {
+        mtrace('view file = = ' . $this->viewFile);
+        $path = $this->getPath();
+        Manager::addAutoloadPath($path);
+        $extension = pathinfo($this->viewFile, PATHINFO_EXTENSION);
+        $this->controller = $controller;
+        $this->data = $parameters;
+        $process = 'process' . $extension;
+        $content = $this->$process();
+        $page = Manager::getPage();
+        $page->setContent($content);
+        return (Manager::isAjaxCall() ? $page->generate() : $page->render());
+    }
+
     protected function processPHP()
     {
         $page = Manager::getPage();
@@ -32,10 +53,11 @@ class MView extends MBaseView
             $view->eventHandler($this->data);
             $view->postback();
         }
-        $page->addContent($view);
-        if (MAESTRO_VERSION == '3.0') {
-            return (Manager::isAjaxCall() ? $page->generate() : $page->render());
-        }
+        //$page->addContent($view);
+        //if (MAESTRO_VERSION == '3.0') {
+        //    return (Manager::isAjaxCall() ? $page->generate() : $page->render());
+        //}
+        return $view;
     }
 
     protected function processXML()
@@ -55,14 +77,15 @@ class MView extends MBaseView
                 }
             }
         }
-        if (MAESTRO_VERSION == '3.0') {
-            return (Manager::isAjaxCall() ? $page->generate() : $page->render());
-        }
+        //if (MAESTRO_VERSION == '3.0') {
+        //    return (Manager::isAjaxCall() ? $page->generate() : $page->render());
+        //}
+        return $container;
     }
 
     protected function processTemplate()
     {
-        $page = Manager::getPage();
+        //$page = Manager::getPage();
         $baseName = basename($this->viewFile);
         $template = new MTemplate(dirname($this->viewFile));
         $template->context('manager', Manager::getInstance());
@@ -70,12 +93,23 @@ class MView extends MBaseView
         $template->context('view', $this);
         $template->context('data', $this->data);
         $template->context('template', $template);
-        mtrace('basename = ' . $baseName);
-        $content = $template->fetch($baseName);
-        $page->setContent($content);
-        if (MAESTRO_VERSION == '3.0') {
-            return (Manager::isAjaxCall() ? $page->generate() : $page->render());
-        }
+
+        //$content = $template->fetch($baseName);
+        //$page->setContent($content);
+        //if (MAESTRO_VERSION == '3.0') {
+        //    return (Manager::isAjaxCall() ? $page->generate() : $page->render());
+        //}
+        return $template->fetch($baseName);
+    }
+
+    protected function processHTML()
+    {
+        return $this->processTemplate();
+    }
+
+    protected function processJS()
+    {
+        return $this->processTemplate();
     }
 
     public function processPrompt(MPromptData $prompt)

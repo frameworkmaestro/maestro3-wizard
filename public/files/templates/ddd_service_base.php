@@ -14,7 +14,7 @@ class BaseService extends \MTransactionalService
 {
     public function __construct()
     {
-        parent::__construct("siga3");
+        parent::__construct("$_db");
     }
 
     public function __invoke($parameters) {

@@ -2,7 +2,7 @@
 
 return array(
     'basePath' => dirname(__FILE__) . DIRECTORY_SEPARATOR . '..',
-    'name' => 'Maestro Wizard',
+    'name' => 'Maestro3 Wizard',
     'import' => array(
         'models.*'
     ),
@@ -13,7 +13,8 @@ return array(
     ),
     'theme' => array(
         'name' => 'wizard',
-        'js' => 'easyui'
+        'js' => 'easyui',
+        'template' => 'index'
     ),
     'login' => array(
         'module' => "",
